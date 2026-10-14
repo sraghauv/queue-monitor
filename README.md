@@ -12,6 +12,23 @@ tool reports is "here is what the tabs I opened showed me," never "here is your 
 
 See [DISCLAIMER.md](./DISCLAIMER.md) before using this against any real site.
 
+## Keeping a session running
+
+Monitoring only advances while the popup is open. The background service worker in Manifest V3 can
+be suspended at any time, so the round loop is deliberately tied to a live popup reporting in rather
+than to a timer held in worker memory — a timer there would stop silently and the leaderboard would
+go on looking current.
+
+In practice that means:
+
+- **Keep the popup open** while you want readings to update. Closing it leaves the session in
+  storage; reopening it recovers the session and resumes, and in between the readings age and are
+  shown as stale rather than presented as live.
+- **Keep the computer awake.** A sleeping machine does not poll, and tabs may be discarded by
+  Chrome's memory saver while it sleeps.
+- Closing a monitored tab is fine — it is reconciled and shown as closed. Nothing in this extension
+  closes a tab for you, including Stop.
+
 ## Status
 
 - **Pre-release, MVP scope.** This implements the core monitor: allowlisted URL validation, tab
