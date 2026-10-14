@@ -46,6 +46,15 @@ async function startFixtureServer(port: number): Promise<Server> {
   return server;
 }
 
+/**
+ * Our background worker, as opposed to the ones Chrome's own component
+ * extensions register — those appear first, so matching by index picks the
+ * wrong extension.
+ */
+function isOurs(candidate: Worker): boolean {
+  return candidate.url().endsWith("/background.js");
+}
+
 export async function launch(options: { port?: number } = {}): Promise<Harness> {
   const port = options.port ?? 8787;
   const server = await startFixtureServer(port);
@@ -67,7 +76,6 @@ export async function launch(options: { port?: number } = {}): Promise<Harness> 
   // The background worker is the extension's identity; wait for it rather than
   // guessing an id. Match on background.js specifically: Chrome's own component
   // extensions register service workers too, and they register first.
-  const isOurs = (candidate: Worker): boolean => candidate.url().endsWith("/background.js");
   const worker =
     context.serviceWorkers().find(isOurs) ??
     (await context.waitForEvent("serviceworker", { predicate: isOurs }));

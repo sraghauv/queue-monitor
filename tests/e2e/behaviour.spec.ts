@@ -36,9 +36,12 @@ test("a tab closed by the user becomes a closed row with no number", async () =>
   // Wait for real readings before closing, so a stale number would be visible
   // if one survived.
   await expect
-    .poll(async () => (await readRows(popup)).filter((c) => c.some((v) => /\d+%/.test(v))).length, {
-      timeout: 25_000,
-    })
+    .poll(
+      async () => (await readRows(popup)).filter((c) => c.some((v) => /\d+%/u.test(v))).length,
+      {
+        timeout: 25_000,
+      },
+    )
     .toBeGreaterThan(0);
 
   const fixturePages = context.pages().filter((p) => p.url().startsWith("http://127.0.0.1"));
@@ -67,7 +70,7 @@ test("the Open button focuses the tab and pauses monitoring", async () => {
   await openButtons.nth(1).click();
 
   // Focusing pauses first, so the user is not fighting a polling round.
-  await expect(popup.locator("#state")).toContainText(/paused/i, { timeout: 15_000 });
+  await expect(popup.locator("#state")).toContainText(/paused/iu, { timeout: 15_000 });
   // And it never closes anything.
   expect(context.pages().filter((p) => p.url().startsWith("http://127.0.0.1")).length).toBe(3);
 });
@@ -93,7 +96,7 @@ test("a progress element that disappears reads as unknown, not a remembered numb
   await startSession(1, "?mode=disappear&start=40");
 
   await expect
-    .poll(async () => (await readRows(popup)).some((c) => /\d+%/.test(c.join(" "))), {
+    .poll(async () => (await readRows(popup)).some((c) => /\d+%/u.test(c.join(" "))), {
       timeout: 25_000,
     })
     .toBe(true);
@@ -103,7 +106,7 @@ test("a progress element that disappears reads as unknown, not a remembered numb
     .poll(
       async () => {
         const row = (await readRows(popup))[0]?.join(" ").toLowerCase() ?? "";
-        return /unknown|—/.test(row) && !/\d+%/.test(row);
+        return /unknown|—/u.test(row) && !/\d+%/u.test(row);
       },
       { timeout: 40_000 },
     )
@@ -115,7 +118,7 @@ test("a navigated-away tab stops reporting progress", async () => {
   await startSession(2, "?seed=6");
 
   await expect
-    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/.test(c.join(" "))).length, {
+    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/u.test(c.join(" "))).length, {
       timeout: 25_000,
     })
     .toBe(2);
@@ -126,7 +129,7 @@ test("a navigated-away tab stops reporting progress", async () => {
   await fixturePages[0]?.goto(harness.fixtureUrl("missing.html"));
 
   await expect
-    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/.test(c.join(" "))).length, {
+    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/u.test(c.join(" "))).length, {
       timeout: 30_000,
     })
     .toBe(1);
@@ -138,7 +141,7 @@ test("monitors 25 tabs and ranks them against each other", async () => {
 
   // Every tracked tab gets a row, and real readings arrive for most of them.
   await expect
-    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/.test(c.join(" "))).length, {
+    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/u.test(c.join(" "))).length, {
       timeout: 40_000,
     })
     .toBeGreaterThanOrEqual(20);
@@ -163,11 +166,11 @@ test("the stale marker appears when a page stops advancing", async () => {
   await startSession(2, "?mode=stall&interval=200");
 
   await expect
-    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/.test(c.join(" "))).length, {
+    .poll(async () => (await readRows(popup)).filter((c) => /\d+%/u.test(c.join(" "))).length, {
       timeout: 25_000,
     })
     .toBe(2);
 
-  await expect(popup.locator("#state")).toContainText(/monitoring/i);
+  await expect(popup.locator("#state")).toContainText(/monitoring/iu);
   await expect(popup.locator("#throughput")).not.toBeEmpty();
 });

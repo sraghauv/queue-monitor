@@ -52,13 +52,13 @@ test("opens tabs, reads real progress from the page, and ranks it", async () => 
     .poll(
       async () => {
         const rows = await readRows(popup);
-        return rows.filter((cells) => cells.some((cell) => /\d+%/.test(cell))).length;
+        return rows.filter((cells) => cells.some((cell) => /\d+%/u.test(cell))).length;
       },
       { timeout: 25_000 },
     )
     .toBeGreaterThan(0);
 
-  await expect(popup.locator("#state")).toContainText(/monitoring/i);
+  await expect(popup.locator("#state")).toContainText(/monitoring/iu);
 });
 
 test("pause and resume flip monitoring without closing tabs", async () => {
@@ -72,11 +72,11 @@ test("pause and resume flip monitoring without closing tabs", async () => {
   const tabsWhileMonitoring = context.pages().length;
 
   await popup.click("#pause");
-  await expect(popup.locator("#state")).toContainText(/paused/i);
+  await expect(popup.locator("#state")).toContainText(/paused/iu);
   expect(context.pages().length).toBe(tabsWhileMonitoring);
 
   await popup.click("#resume");
-  await expect(popup.locator("#state")).toContainText(/monitoring/i);
+  await expect(popup.locator("#state")).toContainText(/monitoring/iu);
   expect(context.pages().length).toBe(tabsWhileMonitoring);
 });
 
@@ -91,7 +91,7 @@ test("stop leaves every tab open", async () => {
   const before = context.pages().length;
   await popup.click("#stop");
 
-  await expect(popup.locator("#state")).toContainText(/stopped/i);
+  await expect(popup.locator("#state")).toContainText(/stopped/iu);
   // The whole point of Stop: the user keeps their place in the queue.
   expect(context.pages().length).toBe(before);
 });
@@ -124,5 +124,5 @@ test("session survives the popup being closed and reopened", async () => {
 
   // Recovered from storage, with the same three tabs and no new ones.
   await expect.poll(() => reopened.locator("#rows tr").count(), { timeout: 20_000 }).toBe(3);
-  await expect(reopened.locator("#state")).toContainText(/monitoring|paused/i);
+  await expect(reopened.locator("#state")).toContainText(/monitoring|paused/iu);
 });
