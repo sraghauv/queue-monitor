@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "eqeqeq": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "unicorn/no-useless-undefined": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "tests/**/*.ts"
+      ],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "require-await": "off",
+        "max-classes-per-file": "off"
+      }
+    },
+    {
+      "files": [
+        "scripts/**/*.mjs"
+      ],
+      "rules": {
+        "max-lines": "off"
+      }
+    }
+  ]
+}

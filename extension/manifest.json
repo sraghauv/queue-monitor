@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Queue Monitor",
+  "version": "0.1.0",
+  "description": "Monitors authorized queue pages across tabs and ranks observed progress. Opening more tabs does not guarantee more queue entries.",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Queue Monitor"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["tabs", "storage"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

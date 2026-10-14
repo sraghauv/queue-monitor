@@ -1,0 +1,41 @@
+{
+  "name": "queue-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Chrome extension that monitors authorized queue pages across many tabs and ranks observed progress honestly.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint && node scripts/verify-module-boundaries.mjs",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:security": "vitest run --project security",
+    "test:dom": "vitest run --project dom",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "serve:mock": "node scripts/serve-mock.mjs",
+    "perf": "node scripts/perf-report.mjs",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.33",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.4",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.2",
+    "oxfmt": "^0.5.0",
+    "oxlint": "^1.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.4"
+  }
+}

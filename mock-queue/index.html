@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queue Monitor Test Fixture</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+    .fixture-note {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    .status {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-left: 4px solid #0066cc;
+      border-radius: 4px;
+    }
+    .status-label {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+    .status-value {
+      font-family: monospace;
+      font-size: 1.1rem;
+      color: #0066cc;
+    }
+    progress#queue {
+      width: 100%;
+      height: 30px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin: 1.5rem 0;
+      accent-color: #0066cc;
+    }
+    .progress-display {
+      text-align: center;
+      margin: 1rem 0;
+      font-size: 1.2rem;
+    }
+    .ready-message {
+      background: #d4edda;
+      border: 1px solid #28a745;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-top: 1.5rem;
+      text-align: center;
+      font-weight: 600;
+      display: none;
+    }
+    .parameters {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #ddd;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .parameters-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    code {
+      background: #f0f0f0;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Queue Monitor Test Fixture</h1>
+
+    <div class="fixture-note">
+      This is a local test fixture, not a real queue. It simulates progress using a timer that increments the progress value at regular intervals. The content script reads the <code>progress#queue</code> element and reports the current value to the extension.
+    </div>
+
+    <div class="status">
+      <div class="status-label">Mode</div>
+      <div class="status-value" id="mode-display">normal</div>
+    </div>
+
+    <div>
+      <label for="queue" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Progress</label>
+      <progress id="queue" max="100" value="10"></progress>
+      <div class="progress-display">
+        <span id="progress-value">10</span>/<span id="progress-max">100</span>
+      </div>
+    </div>
+
+    <div class="ready-message" id="ready-message">
+      Queue is ready!
+    </div>
+
+    <div class="parameters">
+      <div class="parameters-title">Test Parameters</div>
+      <p>Control behavior with query string parameters:</p>
+      <ul style="margin: 0.5rem 0; padding-left: 1.2rem;">
+        <li><code>?start=N</code> — Initial value (default: 10)</li>
+        <li><code>?step=N</code> — Increment per tick (default: 1)</li>
+        <li><code>?interval=MS</code> — Tick interval in milliseconds (default: 2000)</li>
+        <li><code>?mode=normal|stall|disappear|slow</code> — Behavior mode</li>
+        <li><code>?seed=N</code> — Offset start value for multi-tab testing</li>
+      </ul>
+      <p style="margin-top: 1rem; font-size: 0.8rem; color: #999;">
+        <strong>Modes:</strong>
+        <br><code>normal</code> — Advances continuously until max
+        <br><code>stall</code> — Stops advancing after a few ticks (tests stale readings)
+        <br><code>disappear</code> — Removes the progress element after ~10s (tests recovery from missing element)
+        <br><code>slow</code> — Uses a 10s tick interval instead of default
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+
+    const config = {
+      start: parseInt(params.get('start')) || 10,
+      step: parseInt(params.get('step')) || 1,
+      interval: parseInt(params.get('interval')) || 2000,
+      mode: params.get('mode') || 'normal',
+      seed: parseInt(params.get('seed')) || 0,
+    };
+
+    // Apply seed offset to start value
+    config.start = Math.min(config.start + config.seed, 100);
+
+    const progressEl = document.getElementById('queue');
+    const valueDisplay = document.getElementById('progress-value');
+    const maxDisplay = document.getElementById('progress-max');
+    const modeDisplay = document.getElementById('mode-display');
+    const readyMessage = document.getElementById('ready-message');
+
+    let currentValue = config.start;
+    let intervalId = null;
+    let tickCount = 0;
+
+    // Set initial display
+    progressEl.value = currentValue;
+    progressEl.max = 100;
+    valueDisplay.textContent = currentValue;
+    maxDisplay.textContent = 100;
+    modeDisplay.textContent = config.mode;
+
+    function updateDisplay() {
+      valueDisplay.textContent = currentValue;
+      progressEl.value = currentValue;
+    }
+
+    function tick() {
+      tickCount++;
+
+      // In stall mode, stop after a few ticks
+      if (config.mode === 'stall' && tickCount > 5) {
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        return;
+      }
+
+      // In disappear mode, remove the element after ~10 seconds
+      if (config.mode === 'disappear' && tickCount > 5) {
+        progressEl.remove();
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        return;
+      }
+
+      // Advance the value
+      if (currentValue < 100) {
+        currentValue = Math.min(currentValue + config.step, 100);
+        updateDisplay();
+
+        // Show ready message when complete
+        if (currentValue === 100) {
+          readyMessage.style.display = 'block';
+          if (intervalId !== null) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+        }
+      }
+    }
+
+    // Determine actual interval based on mode
+    let actualInterval = config.interval;
+    if (config.mode === 'slow') {
+      actualInterval = 10000; // 10 seconds for slow mode
+    }
+
+    // Start the interval
+    intervalId = setInterval(tick, actualInterval);
+  </script>
+</body>
+</html>
