@@ -15,14 +15,7 @@ import { describeError } from "../domain/errors.js";
 import type { PopupCommand } from "../domain/messages.js";
 import { latestByTab } from "../domain/readings.js";
 import { ok, type Result } from "../domain/result.js";
-import {
-  applyCommand,
-  createSession,
-  isActive,
-  removeTabIds,
-  withSeq,
-  withTabIds,
-} from "../domain/session.js";
+import { applyCommand, createSession, isActive, withSeq, withTabIds } from "../domain/session.js";
 import { EMPTY_METRICS, type Snapshot } from "../domain/types.js";
 import { validateTarget } from "../domain/validation.js";
 import {
@@ -169,7 +162,17 @@ async function runTick(ctx: Context): Promise<Snapshot> {
     prior: ctx.state.readings,
     seq: current.seq,
   });
-  ctx.state.readings = [...latestByTab(round.readings).values()];
+  // A round only reads tracked tabs, so its result says nothing about tabs the
+  // user has closed. Carry those closed rows forward explicitly, or the next
+  // round silently erases them half a second after they appear and a session
+  // that opened five tabs quietly renders as though it only ever had three.
+  // Safe to retain: reconciliation already stripped their progress, so a closed
+  // row carries no number that could read as live.
+  const tracked = new Set(current.tabIds);
+  const closedRows = ctx.state.readings.filter(
+    (reading) => !tracked.has(reading.tabId) && reading.status === "closed",
+  );
+  ctx.state.readings = [...latestByTab([...round.readings, ...closedRows]).values()];
   // The session may have changed while the round was in flight (a closed tab,
   // a pause); re-read it rather than writing back the pre-round copy.
   const after = ctx.state.session;
@@ -230,7 +233,11 @@ export function createCoordinator(deps: CoordinatorDeps): Coordinator {
       await ensureHydrated(ctx);
       const current = ctx.state.session;
       if (!current || !current.tabIds.includes(tabId)) return;
-      ctx.state.session = removeTabIds(current, [tabId], ctx.deps.clock.now());
+      // Reconciliation does the removal, deliberately. Dropping the id here
+      // first would leave reconcile with nothing to detect, so the tab's last
+      // reading would never be converted to `closed` — it would survive as an
+      // orphan showing its final percentage, and then be discarded on the next
+      // load. The user would see the row either lie or silently vanish.
       await reconcileAndPersist(ctx);
     },
 

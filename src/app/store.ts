@@ -64,9 +64,19 @@ export function createStore(deps: { storage: StoragePort; tabs: TabsPort; clock:
     // Discard readings that belong to no tracked tab. With no session at
     // all, every reading is an orphan: there is nothing for it to belong
     // to, and rendering it would be a lie about current state.
+    //
+    // One exception: a reading already marked `closed`. Its tab is gone, which
+    // is exactly why it is no longer tracked, and reconciliation has already
+    // stripped its progress — so it carries no number that could pass for
+    // live. Keeping it lets a recovered session still show that the user
+    // closed two of their five tabs instead of silently reporting three.
     const trackedIds = new Set(session?.tabIds ?? []);
     const readings =
-      session === null ? [] : rawReadings.filter((reading) => trackedIds.has(reading.tabId));
+      session === null
+        ? []
+        : rawReadings.filter(
+            (reading) => trackedIds.has(reading.tabId) || reading.status === "closed",
+          );
 
     return { session, readings, problems };
   }
@@ -109,27 +119,34 @@ export function createStore(deps: { storage: StoragePort; tabs: TabsPort; clock:
     const liveSet = new Set(liveIds);
     const removed = session.tabIds.filter((tabId) => !liveSet.has(tabId));
     const latest = latestByTab(readings);
-
-    if (removed.length === 0) {
-      return {
-        session,
-        readings: orderByTabIds([...latest.values()], session.tabIds),
-        removed: [],
-      };
-    }
-
+    const all = [...latest.values()];
     const now = clock.now();
-    const nextSession = removeTabIds(session, removed, now);
 
-    const survivingReadings = orderByTabIds([...latest.values()], nextSession.tabIds);
-    const closedReadings = removed
+    const nextSession = removed.length === 0 ? session : removeTabIds(session, removed, now);
+    const trackedIds = new Set(nextSession.tabIds);
+
+    // Tabs closed during THIS reconcile: strip their progress so nothing they
+    // last reported can read as live.
+    const newlyClosed = removed
       .map((tabId) => latest.get(tabId))
       .filter((reading): reading is QueueReading => reading !== undefined)
       .map((reading) => closeReading(reading, now));
+    const newlyClosedIds = new Set(newlyClosed.map((reading) => reading.tabId));
+
+    // Tabs closed during an EARLIER reconcile. They are untracked and already
+    // carry no number, so they are kept rather than dropped — otherwise the
+    // closed row survives only until the next reconcile and the session
+    // quietly renders as though those tabs never existed.
+    const previouslyClosed = all.filter(
+      (reading) =>
+        reading.status === "closed" &&
+        !trackedIds.has(reading.tabId) &&
+        !newlyClosedIds.has(reading.tabId),
+    );
 
     return {
       session: nextSession,
-      readings: [...survivingReadings, ...closedReadings],
+      readings: [...orderByTabIds(all, nextSession.tabIds), ...previouslyClosed, ...newlyClosed],
       removed,
     };
   }

@@ -153,6 +153,59 @@ describe("live tab closure", () => {
     expect(snapshot.ranked.map((r) => r.tabId)).not.toContain(victim);
     // The remaining tabs are untouched; nothing here closes a tab.
     expect(tabs.open).toHaveLength(3);
+
+    // The closed tab keeps a visible row with its number stripped. Removing
+    // the id from the session before reconciling used to leave reconcile with
+    // nothing to detect, so this row either lied or vanished.
+    const closedRow = snapshot.readings.find((reading) => reading.tabId === victim);
+    expect(closedRow).toBeDefined();
+    expect(closedRow?.status).toBe("closed");
+    expect(closedRow?.progress).toBeNull();
+  });
+
+  it("keeps the closed row through later polling rounds", async () => {
+    const storage = new FakeStorage();
+    const tabs = new FakeTabs();
+    const clock = new FakeClock();
+
+    const coordinator = spawn(storage, tabs, clock);
+    await coordinator.handle({ type: "START", url: MOCK_URL, count: 3 });
+    await coordinator.tick();
+
+    const victim = tabs.open[1] as number;
+    tabs.closeTab(victim);
+    await coordinator.noteTabClosed(victim);
+
+    // A round only reads tracked tabs. Without carrying closed rows forward,
+    // the next round erases the evidence that the tab ever existed.
+    await coordinator.tick();
+    await coordinator.tick();
+
+    const snapshot = coordinator.snapshot();
+    const closedRow = snapshot.readings.find((reading) => reading.tabId === victim);
+    expect(closedRow?.status).toBe("closed");
+    expect(closedRow?.progress).toBeNull();
+    expect(snapshot.readings).toHaveLength(3);
+  });
+
+  it("keeps the closed row across a worker restart", async () => {
+    const storage = new FakeStorage();
+    const tabs = new FakeTabs();
+    const clock = new FakeClock();
+
+    const first = spawn(storage, tabs, clock);
+    await first.handle({ type: "START", url: MOCK_URL, count: 3 });
+    await first.tick();
+    const victim = tabs.open[0] as number;
+    tabs.closeTab(victim);
+    await first.noteTabClosed(victim);
+
+    const restarted = spawn(storage, tabs, clock);
+    const recovered = await restarted.hydrate();
+
+    const closedRow = recovered.readings.find((reading) => reading.tabId === victim);
+    expect(closedRow?.status).toBe("closed");
+    expect(closedRow?.progress).toBeNull();
   });
 
   it("ignores a closure notice for a tab it never tracked", async () => {
