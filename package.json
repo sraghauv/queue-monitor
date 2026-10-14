@@ -21,6 +21,7 @@
     "test:integration": "vitest run --project integration",
     "test:security": "vitest run --project security",
     "test:dom": "vitest run --project dom",
+    "test:e2e": "npm run build && playwright test",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "serve:mock": "node scripts/serve-mock.mjs",
@@ -28,6 +29,7 @@
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/chrome": "^0.1.33",
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^5.0.4",

@@ -5,3 +5,7 @@ coverage/
 *.log
 .cache/
 perf-results/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
