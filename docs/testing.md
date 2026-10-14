@@ -87,16 +87,44 @@ extension (`npm run build`, then `chrome://extensions` → Developer mode → Lo
       allowlist, or a non-`https:`/non-loopback-`http:` scheme) and confirm it's refused with a
       clear error, with no tab opened.
 
+## End-to-end tests
+
+`npm run test:e2e` builds the extension and runs `tests/e2e/` under Playwright. These load the real
+`dist/` into a real browser, serve `mock-queue/` over loopback, and drive the real popup. They are
+the only tests that can show the extension works rather than that the fakes agree with each other —
+every bug found after the unit suite went green was found here.
+
+They are **not** part of `npm run check`: they need a browser installed and take about a minute.
+
+```
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+Two constraints worth knowing before changing the harness:
+
+- **It must be Chromium, not branded Google Chrome.** Chrome refuses `--load-extension` and
+  `--disable-extensions-except` ("not allowed in Google Chrome, ignoring"). The browser still
+  starts, the extension silently never loads, and every assertion then fails for a reason that
+  looks like a product bug. Playwright's bundled build is Chrome for Testing, which honours both.
+- **Match the service worker on `background.js`.** Chrome's own component extensions register
+  service workers first, so `context.serviceWorkers()[0]` returns Google Network Speech and a
+  wrong extension id.
+
+Manual checking is still required for what Playwright cannot drive: real service-worker
+suspension, machine sleep/resume, and Chrome's memory saver discarding tabs.
+
 ## Known gaps
 
-- **`src/platform/chromeBrowser.ts` has no automated coverage.** It is the one file that
-  actually calls `chrome.tabs`/`chrome.storage`/`chrome.windows`; everything above it is tested
-  against `FakeTabs`/`FakeStorage` instead. Its correctness can only be verified by the manual
-  Chrome checklist above — a green test suite says nothing about this file.
+- **`src/platform/chromeBrowser.ts` is covered only end-to-end.** It has no unit tests; what
+  exercises it is the Playwright suite (`npm run test:e2e`), which loads the built extension into
+  a real browser. That covers the paths the suite actually walks — tab creation, reads, focus,
+  storage, closure — and not the error branches, notably the `tab-missing` detection that
+  regex-matches Chrome's error message text. Treat that branch as unverified.
 - **The three thin entry points** (`src/background/index.ts`, `src/popup/index.ts`,
-  `src/content/index.ts`) are explicitly excluded from coverage reporting in
-  `vitest.config.ts`. They're deliberately minimal wiring, but "minimal" is not "untestable
-  bug-free" — the manual checklist above is what actually exercises them.
+  `src/content/index.ts`) are excluded from coverage reporting in `vitest.config.ts`. They are
+  deliberately minimal wiring, but "minimal" is not "bug-free" — the end-to-end suite is what
+  actually drives them.
 - **`src/background/roundLoop.ts`'s real-time behaviour** (the `POPUP_IDLE_MS`/`ROUND_GAP_MS`
   timing against a live popup and a real suspended service worker) is not exercised by any
   automated test against real Chrome timing — only its logic shape, if covered at all, would be

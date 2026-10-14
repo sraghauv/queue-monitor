@@ -31,6 +31,11 @@ In practice that means:
 
 ## Status
 
+Verified end to end: `npm run test:e2e` loads the built extension into Chrome for Testing and
+drives the real popup against the local fixture — opening tabs, reading page progress, ranking,
+pause/resume/stop, tab closure and session recovery. No real ticketing site has been tested, and
+none is on the shipped allowlist.
+
 - **Pre-release, MVP scope.** This implements the core monitor: allowlisted URL validation, tab
   creation, polling with bounded concurrency, ranking, pause/resume/stop, and a popup UI.
 - **Chrome only.** No Safari build exists. Safari WebExtension packaging is explicitly out of
@@ -152,6 +157,7 @@ Pinned Node version is in `.nvmrc`. Install with `npm ci`.
 | `npm run lint:fix` | `oxlint --fix`. |
 | `npm run format` / `npm run format:check` | `oxfmt`. |
 | `npm test` | All Vitest projects. |
+| `npm run test:e2e` | Builds, then drives the real extension in a real browser (needs `npx playwright install chromium`). |
 | `npm run test:unit` / `test:dom` / `test:integration` / `test:security` | One test tier at a time. |
 | `npm run test:watch` | Vitest in watch mode. |
 | `npm run coverage` | Vitest with coverage. |
